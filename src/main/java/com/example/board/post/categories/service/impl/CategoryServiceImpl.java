@@ -1,12 +1,15 @@
 package com.example.board.post.categories.service.impl;
 
 import com.example.board.post.categories.controller.dto.CategoryHeaderMenuResponse;
+import com.example.board.post.categories.controller.dto.CategoryTreeResponse;
 import com.example.board.post.categories.entity.Category;
 import com.example.board.post.categories.repository.CategoryRepository;
 import com.example.board.post.categories.service.CategoryService;
 import com.example.board.post.categories.service.command.CategoryAddCommand;
 import com.example.board.post.categories.service.result.AddCategoryResult;
 import com.example.board.post.categories.service.result.CategoryHeaderMenuItem;
+import com.example.board.post.categories.service.result.CategoryTreeItem;
+import com.example.board.post.categories.service.result.CategoryTreeNode;
 import com.example.board.post.commons.exception.UnhandledDataIntegrityViolationException;
 import com.example.board.post.commons.utils.DatabaseConstraintName;
 import com.example.board.post.commons.utils.ExceptionUtils;
@@ -16,6 +19,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -41,33 +45,17 @@ public class CategoryServiceImpl implements CategoryService {
     }
 
     @Override
+    public CategoryTreeResponse getCategoryTree() {
+        var categories = categoryRepository.findAllByOrderByParentIdAscDisplayOrderAscIdAsc();
+        var roots = toTreeItems(buildRoots(categories));
+
+        return new CategoryTreeResponse(roots);
+    }
+
+    @Override
     public CategoryHeaderMenuResponse getCategoryHeaderMenu() {
-        var categories = categoryRepository.findAllByOrderByParentIdAscDisplayOrderAsc();
-        var map = new HashMap<Long, CategoryHeaderMenuItem>();
-        var roots = new ArrayList<CategoryHeaderMenuItem>();
-
-        for(var category: categories) {
-            map.put(category.getId(), new CategoryHeaderMenuItem(
-                    category.getId(),
-                    category.getName(),
-                    category.getSlug(),
-                    category.getDisplayOrder(),
-                    new ArrayList<>()
-            ));
-        }
-
-        for (var category : categories) {
-            var item = map.get(category.getId());
-            if(category.getParentId() == null) {
-                roots.add(item);
-            }
-            else {
-                var parent = map.get(category.getParentId());
-                if(parent != null) {
-                    parent.children().add(item);
-                }
-            }
-        }
+        var categories = categoryRepository.findAllByOrderByParentIdAscDisplayOrderAscIdAsc();
+        var roots = toHeaderMenuItems(buildRoots(categories));
 
         return new CategoryHeaderMenuResponse(roots);
     }
@@ -89,5 +77,59 @@ public class CategoryServiceImpl implements CategoryService {
             }
             throw new UnhandledDataIntegrityViolationException(e);
         }
+    }
+
+    private List<CategoryTreeNode> buildRoots(List<Category> categories) {
+        var map = new HashMap<Long, CategoryTreeNode>();
+        var roots = new ArrayList<CategoryTreeNode>();
+
+        for (var category : categories) {
+            map.put(category.getId(), new CategoryTreeNode(
+                    category.getId(),
+                    category.getName(),
+                    category.getSlug(),
+                    category.getDisplayOrder(),
+                    new ArrayList<>()
+            ));
+        }
+
+        for (var category : categories) {
+            var item = map.get(category.getId());
+            if(category.getParentId() == null) {
+                roots.add(item);
+            }
+            else {
+                var parent = map.get(category.getParentId());
+                if(parent != null) {
+                    parent.children().add(item);
+                }
+            }
+        }
+
+        return roots;
+    }
+
+    private List<CategoryTreeItem> toTreeItems(List<CategoryTreeNode> roots) {
+        return roots.stream()
+                .map(node -> new CategoryTreeItem(
+                        node.id(),
+                        node.name(),
+                        node.slug(),
+                        node.displayOrder(),
+                        toTreeItems(node.children())
+                ))
+                .toList();
+    }
+
+    private List<CategoryHeaderMenuItem> toHeaderMenuItems(List<CategoryTreeNode> roots) {
+        return roots.stream()
+                .map(node -> new CategoryHeaderMenuItem(
+                        node.id(),
+                        node.name(),
+                        node.slug(),
+                        node.displayOrder(),
+                        toHeaderMenuItems(node.children())
+                ))
+                .toList();
     }
 }

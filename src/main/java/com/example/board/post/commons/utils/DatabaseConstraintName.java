@@ -5,8 +5,8 @@ public final class DatabaseConstraintName {
 
     public static final class Category {
         private Category() {}
-        public static final String NAME = "uk_category_parent_name";
-        public static final String SLUG = "uk_category_slug";
-        public static final String PARENT = "fk_category_parent";
+        public static final String NAME = "category.uk_category_parent_name";
+        public static final String SLUG = "category.uk_category_slug";
+        public static final String PARENT = "category.fk_category_parent";
     }
 }

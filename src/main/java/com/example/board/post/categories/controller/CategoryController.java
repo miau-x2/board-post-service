@@ -2,6 +2,7 @@ package com.example.board.post.categories.controller;
 
 import com.example.board.post.categories.controller.dto.CategoryAddRequest;
 import com.example.board.post.categories.controller.dto.CategoryHeaderMenuResponse;
+import com.example.board.post.categories.controller.dto.CategoryTreeResponse;
 import com.example.board.post.categories.service.CategoryService;
 import com.example.board.post.categories.service.command.CategoryAddCommand;
 import com.example.board.post.categories.service.result.AddCategoryResult;
@@ -15,12 +16,12 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/categories")
+@RequestMapping("/api")
 @RequiredArgsConstructor
 public class CategoryController {
     private final CategoryService categoryService;
 
-    @PostMapping
+    @PostMapping("/admin/categories")
     public ResponseEntity<ApiResponse<Void>> addCategory(@Valid @RequestBody CategoryAddRequest request) {
         var result = categoryService.addCategory(new CategoryAddCommand(request.parentId(), request.name(), request.slug(), request.displayOrder()));
         return switch (result) {
@@ -56,6 +57,14 @@ public class CategoryController {
                         .body(ApiResponse.error(code));
             }
         };
+    }
+
+    @GetMapping("/admin/categories/tree")
+    public ResponseEntity<ApiResponse<CategoryTreeResponse>> getCategoryTree() {
+        var code = CategorySuccessCode.CATEGORY_TREE_FOUND;
+        return ResponseEntity
+                .status(HttpStatus.OK)
+                .body(ApiResponse.success(code, categoryService.getCategoryTree()));
     }
 
     @GetMapping("/header-menu")
