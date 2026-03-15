@@ -6,21 +6,22 @@ import com.example.board.post.categories.entity.Category;
 import com.example.board.post.categories.repository.CategoryRepository;
 import com.example.board.post.categories.service.CategoryService;
 import com.example.board.post.categories.service.command.CategoryAddCommand;
-import com.example.board.post.categories.service.result.AddCategoryResult;
-import com.example.board.post.categories.service.result.CategoryHeaderMenuItem;
-import com.example.board.post.categories.service.result.CategoryTreeItem;
-import com.example.board.post.categories.service.result.CategoryTreeNode;
+import com.example.board.post.categories.service.result.*;
 import com.example.board.post.commons.exception.UnhandledDataIntegrityViolationException;
 import com.example.board.post.commons.utils.DatabaseConstraintName;
 import com.example.board.post.commons.utils.ExceptionUtils;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class CategoryServiceImpl implements CategoryService {
@@ -28,6 +29,7 @@ public class CategoryServiceImpl implements CategoryService {
     private final CategoryTxService categoryTxService;
 
     @Override
+    @PreAuthorize("hasRole('ADMIN')")
     public AddCategoryResult addCategory(CategoryAddCommand command) {
         if(command.parentId() == null) {
             return saveCategory(Category.root(command.name(), command.slug(), command.displayOrder()));
@@ -45,14 +47,18 @@ public class CategoryServiceImpl implements CategoryService {
     }
 
     @Override
+    @PreAuthorize("hasRole('ADMIN')")
+    @Transactional(readOnly = true)
     public CategoryTreeResponse getCategoryTree() {
         var categories = categoryRepository.findAllByOrderByParentIdAscDisplayOrderAscIdAsc();
         var roots = toTreeItems(buildRoots(categories));
+        log.info("관리자 카테고리 목록 조회");
 
         return new CategoryTreeResponse(roots);
     }
 
     @Override
+    @Transactional(readOnly = true)
     public CategoryHeaderMenuResponse getCategoryHeaderMenu() {
         var categories = categoryRepository.findAllByOrderByParentIdAscDisplayOrderAscIdAsc();
         var roots = toHeaderMenuItems(buildRoots(categories));
@@ -60,9 +66,23 @@ public class CategoryServiceImpl implements CategoryService {
         return new CategoryHeaderMenuResponse(roots);
     }
 
+    @Override
+    @PreAuthorize("hasRole('ADMIN')")
+    @Transactional
+    public UpdateCategoryResult updateDisplayOrder(Long id, int displayOrder) {
+        return categoryRepository.findById(id)
+                .<UpdateCategoryResult>map(category -> {
+                    category.updateDisplayOrder(displayOrder);
+                    log.info("카테고리 순서 수정: {}", category.getName());
+                    return new UpdateCategoryResult.Success();
+                })
+                .orElseGet(UpdateCategoryResult.NotFound::new);
+    }
+
     private AddCategoryResult saveCategory(Category category) {
         try {
             categoryTxService.saveCategory(category);
+            log.info("카테고리 저장: {}", category.getName());
             return new AddCategoryResult.Success();
         } catch (DataIntegrityViolationException e) {
             var constraintName = ExceptionUtils.findConstraintName(e);

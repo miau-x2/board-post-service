@@ -3,9 +3,11 @@ package com.example.board.post.categories.controller;
 import com.example.board.post.categories.controller.dto.CategoryAddRequest;
 import com.example.board.post.categories.controller.dto.CategoryHeaderMenuResponse;
 import com.example.board.post.categories.controller.dto.CategoryTreeResponse;
+import com.example.board.post.categories.controller.dto.DisplayOrderUpdateRequest;
 import com.example.board.post.categories.service.CategoryService;
 import com.example.board.post.categories.service.command.CategoryAddCommand;
 import com.example.board.post.categories.service.result.AddCategoryResult;
+import com.example.board.post.categories.service.result.UpdateCategoryResult;
 import com.example.board.post.commons.response.ApiResponse;
 import com.example.board.post.commons.response.CategoryErrorCode;
 import com.example.board.post.commons.response.CategorySuccessCode;
@@ -38,7 +40,7 @@ public class CategoryController {
                         .body(ApiResponse.error(code));
             }
             case AddCategoryResult.ParentNotFound _ -> {
-                var code = CategoryErrorCode.PARENT_NOT_FOUND;
+                var code = CategoryErrorCode.PARENT_CATEGORY_NOT_FOUND;
                 yield ResponseEntity
                         .status(code.getHttpStatus())
                         .body(ApiResponse.error(code));
@@ -69,9 +71,29 @@ public class CategoryController {
 
     @GetMapping("/header-menu")
     public ResponseEntity<ApiResponse<CategoryHeaderMenuResponse>> getCategoryHeaderMenu() {
+        var result = categoryService.getCategoryHeaderMenu();
         var code = CategorySuccessCode.CATEGORY_HEADER_MENU_FOUND;
         return ResponseEntity
-                .status(HttpStatus.OK)
-                .body(ApiResponse.success(code, categoryService.getCategoryHeaderMenu()));
+                .status(code.getHttpStatus())
+                .body(ApiResponse.success(code, result));
+    }
+
+    @PostMapping("/admin/categories/display-order")
+    public ResponseEntity<ApiResponse<Void>> updateDisplayOrder(@RequestBody DisplayOrderUpdateRequest request) {
+        var result = categoryService.updateDisplayOrder(request.id(), request.displayOrder());
+        return switch (result) {
+            case UpdateCategoryResult.Success _ -> {
+                var code = CategorySuccessCode.CATEGORY_DISPLAY_ORDER_UPDATED;
+                yield ResponseEntity
+                        .status(code.getHttpStatus())
+                        .body(ApiResponse.success(code));
+            }
+            case UpdateCategoryResult.NotFound _ -> {
+                var code = CategoryErrorCode.CATEGORY_NOT_FOUND;
+                yield ResponseEntity
+                        .status(code.getHttpStatus())
+                        .body(ApiResponse.error(code));
+            }
+        };
     }
 }

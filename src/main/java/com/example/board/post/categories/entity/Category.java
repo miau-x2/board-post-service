@@ -61,4 +61,8 @@ public class Category extends BaseEntity {
     public static Category child(Long parentId, String name, String slug, int displayOrder) {
         return new Category(parentId, name, slug, displayOrder, null);
     }
+
+    public void updateDisplayOrder(int displayOrder) {
+        this.displayOrder = displayOrder;
+    }
 }
